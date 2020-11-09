@@ -29,6 +29,7 @@
 #include "videl.h"
 #include "sound.h"
 #include "dmasound.h"
+#include "dsp.h"
 #include "floppy.h"
 #include "disk.h"
 #include "clock.h"
@@ -977,6 +978,110 @@ static void xbios_5e(WORD index,WORD count,ULONG *rgb)
 }
 #endif
 
+/*
+ * DSP
+ */
+#if DBG_XBIOS & CONF_WITH_DSP
+static void xbios_60(char *send, LONG sendlen, char *rcv, LONG rcvlen)
+{
+    kprintf("XBIOS: Dsp_DoBlock\n");
+    dsp_doblock(send, sendlen, rcv, rcvlen);
+}
+static void xbios_61(char *send, LONG sendlen, char *rcv, LONG rcvlen)
+{
+    kprintf("XBIOS: Dsp_BlkHandshake\n");
+    dsp_blkhandshake(send, sendlen, rcv, rcvlen);
+}
+static void xbios_62(LONG *send, LONG sendlen, LONG *rcv, LONG rcvlen)
+{
+    kprintf("XBIOS: Dsp_BlkUnpacked\n");
+    dsp_blkunpacked(send, sendlen, rcv, rcvlen);
+}
+static void xbios_63(char *data, LONG datalen, LONG numblocks, LONG *blocksdone)
+{
+    kprintf("XBIOS: Dsp_InStream\n");
+    dsp_instream(data, datalen, numblocks, blocksdone);
+}
+static void xbios_64(char *data, LONG datalen, LONG numblocks, LONG *blocksdone)
+{
+    kprintf("XBIOS: Dsp_OutStream\n");
+    dsp_outstream(data, datalen, numblocks, blocksdone);
+}
+static void xbios_65(char *send, char *rcv, LONG sendlen, LONG rcvlen, LONG numblocks, LONG *blocksdone)
+{
+    kprintf("XBIOS: Dsp_IOStream\n");
+    dsp_iostream(send, rcv, sendlen, rcvlen, numblocks, blocksdone);
+}
+static void xbios_66(WORD mask)
+{
+    kprintf("XBIOS: Dsp_RemoveInterrupts\n");
+    dsp_removeinterrupts(mask);
+}
+static WORD xbios_67(void)
+{
+    kprintf("XBIOS: Dsp_GetWordSize\n");
+    return dsp_getwordsize();
+}
+static WORD xbios_68(void)
+{
+    kprintf("XBIOS: Dsp_Lock\n");
+    return dsp_lock();
+}
+static void xbios_69(void)
+{
+    kprintf("XBIOS: Dsp_Unlock\n");
+    dsp_unlock();
+}
+static WORD xbios_77(WORD flag)
+{
+    kprintf("XBIOS: Dsp_Hf0\n");
+    return dsp_hf0(flag);
+}
+static WORD xbios_78(WORD flag)
+{
+    kprintf("XBIOS: Dsp_Hf1\n");
+    return dsp_hf1(flag);
+}
+static WORD xbios_79(void)
+{
+    kprintf("XBIOS: Dsp_Hf2\n");
+    return dsp_hf2();
+}
+static WORD xbios_7a(void)
+{
+    kprintf("XBIOS: Dsp_Hf3\n");
+    return dsp_hf3();
+}
+static void xbios_7b(WORD *send, LONG sendlen, WORD *rcv, LONG rcvlen)
+{
+    kprintf("XBIOS: Dsp_BlkWords\n");
+    dsp_blkwords(send, sendlen, rcv, rcvlen);
+}
+static void xbios_7c(UBYTE *send, LONG sendlen, UBYTE *rcv, LONG rcvlen)
+{
+    kprintf("XBIOS: Dsp_BlkBytes\n");
+    dsp_blkbytes(send, sendlen, rcv, rcvlen);
+}
+static UBYTE xbios_7d(void)
+{
+    kprintf("XBIOS: Dsp_HStat\n");
+    return dsp_hstat();
+}
+static void xbios_7e(void (*receiver)(LONG data), LONG (*transmitter)(void))
+{
+    kprintf("XBIOS: Dsp_SetVectors\n");
+    dsp_setvectors(receiver, transmitter);
+}
+static void xbios_7f(LONG sendnum, LONG rcvnum, DSPBLOCK *sendinfo, DSPBLOCK *rcvinfo)
+{
+    kprintf("XBIOS: Dsp_MultBlocks\n");
+    dsp_multblocks(sendnum, rcvnum, sendinfo, rcvinfo);
+}
+#endif
+
+/*
+ * DMA sound
+ */
 #if DBG_XBIOS & CONF_WITH_DMASOUND
 static LONG xbios_80(void)
 {
@@ -1082,6 +1187,18 @@ LONG supexec(PFLONG);       /* defined in vectors.S */
 #define VEC(wrapper, direct) (PFLONG) direct
 #endif
 
+#if CONF_WITH_DMASOUND
+# define LAST_ENTRY 0x8d
+#elif CONF_WITH_DSP
+# define LAST_ENTRY 0x7f
+#elif CONF_WITH_VIDEL
+# define LAST_ENTRY 0x5e
+#elif CONF_WITH_TT_SHIFTER
+# define LAST_ENTRY 0x57
+#else
+# define LAST_ENTRY 0x40
+#endif
+
 const PFLONG xbios_vecs[] = {
     VEC(xbios_0, Initmous),
     xbios_unimpl,   /*  1 ssbrk */
@@ -1169,8 +1286,8 @@ const PFLONG xbios_vecs[] = {
     xbios_unimpl,   /* 3e */
     xbios_unimpl,   /* 3f */
     VEC(xbios_40, blitmode),  /* 40 */
-#if CONF_WITH_TT_SHIFTER || CONF_WITH_VIDEL || CONF_WITH_DMASOUND
-    /* These fillers are required if any of the features below are enabled */
+
+#if LAST_ENTRY > 0x40       /* must insert fillers */
     xbios_unimpl,   /* 41 */
     xbios_unimpl,   /* 42 */
     xbios_unimpl,   /* 43 */
@@ -1187,6 +1304,7 @@ const PFLONG xbios_vecs[] = {
     xbios_unimpl,   /* 4e */
     xbios_unimpl,   /* 4f */
 #endif
+
 #if CONF_WITH_TT_SHIFTER
     VEC(xbios_50, esetshift),   /* 50 */
     VEC(xbios_51, egetshift),   /* 51 */
@@ -1196,8 +1314,7 @@ const PFLONG xbios_vecs[] = {
     VEC(xbios_55, egetpalette), /* 55 */
     VEC(xbios_56, esetgray),    /* 56 */
     VEC(xbios_57, esetsmear),   /* 57 */
-#elif CONF_WITH_VIDEL || CONF_WITH_DMASOUND
-    /* These fillers are required if any of the features below are enabled */
+#elif LAST_ENTRY > 0x57     /* must insert fillers for TT shifter opcodes */
     xbios_unimpl,   /* 50 */
     xbios_unimpl,   /* 51 */
     xbios_unimpl,   /* 52 */
@@ -1206,7 +1323,8 @@ const PFLONG xbios_vecs[] = {
     xbios_unimpl,   /* 55 */
     xbios_unimpl,   /* 56 */
     xbios_unimpl,   /* 57 */
-#endif
+#endif  /* CONF_WITH_TT_SHIFTER */
+
 #if CONF_WITH_VIDEL
     VEC(xbios_58, vsetmode),   /* 58 */
     VEC(xbios_59, vmontype),   /* 59 */
@@ -1215,8 +1333,7 @@ const PFLONG xbios_vecs[] = {
     xbios_unimpl,   /* 5c */
     VEC(xbios_5d, vsetrgb),   /* 5d */
     VEC(xbios_5e, vgetrgb),   /* 5e */
-#elif CONF_WITH_DMASOUND
-    /* These fillers are required if any of the features below are enabled */
+#elif LAST_ENTRY > 0x5e     /* must insert fillers for videl opcodes */
     xbios_unimpl,   /* 58 */
     xbios_unimpl,   /* 59 */
     xbios_unimpl,   /* 5a */
@@ -1224,9 +1341,46 @@ const PFLONG xbios_vecs[] = {
     xbios_unimpl,   /* 5c */
     xbios_unimpl,   /* 5d */
     xbios_unimpl,   /* 5e */
-#endif
-#if CONF_WITH_DMASOUND
+#endif  /* CONF_WITH_VIDEL */
+
+#if LAST_ENTRY > 0x5e       /* must insert fillers */
     xbios_unimpl,   /* 5f */
+#endif
+
+#if CONF_WITH_DSP
+    VEC(xbios_60, dsp_doblock),
+    VEC(xbios_61, dsp_blkhandshake),
+    VEC(xbios_62, dsp_blkunpacked),
+    VEC(xbios_63, dsp_instream),
+    VEC(xbios_64, dsp_outstream),
+    VEC(xbios_65, dsp_iostream),
+    VEC(xbios_66, dsp_removeinterrupts),
+    VEC(xbios_67, dsp_getwordsize),
+    VEC(xbios_68, dsp_lock),
+    VEC(xbios_69, dsp_unlock),
+    xbios_unimpl,   /* 6a */
+    xbios_unimpl,   /* 6b */
+    xbios_unimpl,   /* 6c */
+    xbios_unimpl,   /* 6d */
+    xbios_unimpl,   /* 6e */
+    xbios_unimpl,   /* 6f */
+    xbios_unimpl,   /* 70 */
+    xbios_unimpl,   /* 71 */
+    xbios_unimpl,   /* 72 */
+    xbios_unimpl,   /* 73 */
+    xbios_unimpl,   /* 74 */
+    xbios_unimpl,   /* 75 */
+    xbios_unimpl,   /* 76 */
+    VEC(xbios_77, dsp_hf0),
+    VEC(xbios_78, dsp_hf1),
+    VEC(xbios_79, dsp_hf2),
+    VEC(xbios_7a, dsp_hf3),
+    VEC(xbios_7b, dsp_blkwords),
+    VEC(xbios_7c, dsp_blkbytes),
+    VEC(xbios_7d, dsp_hstat),
+    VEC(xbios_7e, dsp_setvectors),
+    VEC(xbios_7f, dsp_multblocks),
+#elif LAST_ENTRY > 0x7f     /* must insert fillers for DSP opcodes */
     xbios_unimpl,   /* 60 */
     xbios_unimpl,   /* 61 */
     xbios_unimpl,   /* 62 */
@@ -1259,6 +1413,9 @@ const PFLONG xbios_vecs[] = {
     xbios_unimpl,   /* 7d */
     xbios_unimpl,   /* 7e */
     xbios_unimpl,   /* 7f */
+#endif
+
+#if CONF_WITH_DMASOUND
     VEC(xbios_80, locksnd),     /* 80 */
     VEC(xbios_81, unlocksnd),   /* 81 */
     VEC(xbios_82, soundcmd),    /* 82 */

@@ -350,12 +350,12 @@ static int check_interface_magic(volatile struct IDE *interface, WORD ifnum)
 static int ide_interface_is_ghost(WORD ifnum)
 {
     int i, bitmask;
-    UWORD numcnt = MAKE_UWORD(SECNUM_MAGIC + ifnum, SECCNT_MAGIC + ifnum);
 
     for (i = 0, bitmask = 1; i < ifnum; i++, bitmask <<= 1) {
         if (has_ide&bitmask) {
+            /* check a previous interface against the magic of the current interface */
             volatile struct IDE *interface = ifinfo[i].base_address;
-            if (IDE_READ_SECTOR_NUMBER_SECTOR_COUNT(interface) == numcnt)
+            if (check_interface_magic(interface, ifnum))
                 return 1;
         }
     }

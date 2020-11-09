@@ -43,6 +43,7 @@
 #include "floppy.h"
 #include "sound.h"
 #include "dmasound.h"
+#include "dsp.h"
 #include "screen.h"
 #include "clock.h"
 #include "vectors.h"
@@ -367,6 +368,12 @@ static void bios_init(void)
         boot_status |= SCC_AVAILABLE;   /* track progress */
 #endif
 
+    /* Initialize the DSP */
+#if CONF_WITH_DSP
+    KDEBUG(("dsp_init()\n"));
+    dsp_init();
+#endif
+
     /* The sound init must be done before allowing MFC interrupts,
      * because of dosound stuff in the timer C interrupt routine.
      */
@@ -431,7 +438,7 @@ static void bios_init(void)
 
 #if CONF_WITH_NOVA
     /* Detect and initialize a Nova card, skip if Ctrl is pressed */
-    if (has_nova && !(kbshift(-1) & MODE_CTRL)) {
+    if (HAS_NOVA && !(kbshift(-1) & MODE_CTRL)) {
         KDEBUG(("init_nova()\n"));
         if (init_nova()) {
             set_rez_hacked();   /* also reinitializes the vt52 console */
