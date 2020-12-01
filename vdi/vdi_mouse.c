@@ -14,7 +14,7 @@
 #include "biosbind.h"
 #include "xbiosbind.h"
 #include "obdefs.h"
-#include "gsxdefs.h"
+#include "aesdefs.h"
 #include "aesext.h"
 #include "vdi_defs.h"
 #include "vdistub.h"
@@ -338,9 +338,6 @@ void vdi_v_hide_c(Vwk * vwk)
 void vdi_vq_mouse(Vwk * vwk)
 {
     INTOUT[0] = MOUSE_BT;
-
-    CONTRL[4] = 1;
-    CONTRL[2] = 1;
 
     PTSOUT[0] = GCURX;
     PTSOUT[1] = GCURY;

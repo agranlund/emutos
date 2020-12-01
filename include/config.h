@@ -137,6 +137,9 @@
 # ifndef CONF_WITH_TT_SHIFTER
 #  define CONF_WITH_TT_SHIFTER 0
 # endif
+# ifndef CONF_WITH_DSP
+#  define CONF_WITH_DSP 0
+# endif
 # ifndef CONF_WITH_SCC
 #  define CONF_WITH_SCC 0
 # endif
@@ -282,6 +285,15 @@
 # endif
 # ifndef CONF_WITH_XHDI
 #  define CONF_WITH_XHDI 0
+# endif
+# ifndef CONF_WITH_COLOUR_ICONS
+#  define CONF_WITH_COLOUR_ICONS 0
+# endif
+# ifndef CONF_WITH_GRAF_MOUSE_EXTENSION
+#  define CONF_WITH_GRAF_MOUSE_EXTENSION 0
+# endif
+# ifndef CONF_WITH_WINDOW_COLOURS
+#  define CONF_WITH_WINDOW_COLOURS 0
 # endif
 # ifndef CONF_WITH_WINDOW_ICONS
 #  define CONF_WITH_WINDOW_ICONS 0
@@ -974,7 +986,7 @@
  * Set CONF_WITH_DSP to 1 to enable support for Falcon DSP
  */
 #ifndef CONF_WITH_DSP
-# define CONF_WITH_DSP 0
+# define CONF_WITH_DSP 1
 #endif
 
 /*
@@ -1089,19 +1101,6 @@
  */
 #ifndef GEMDOS_VERSION
 # define GEMDOS_VERSION 0x2000
-#endif
-
-/*
- * Define the AES version here. Valid values include:
- *      0x0120      AES 1.20, used by TOS v1.02
- *      0x0140      AES 1.40, used by TOS v1.04 & v1.62
- *      0x0320      AES 3.20, used by TOS v2.06 & v3.06
- *      0x0340      AES 3.40, used by TOS v4.04
- * Do not change this arbitrarily, as each value implies the presence or
- * absence of certain AES functions ...
- */
-#ifndef AES_VERSION
-# define AES_VERSION 0x0140
 #endif
 
 /*
@@ -1226,6 +1225,14 @@
 #endif
 
 /*
+ * Set CONF_WITH_COLOUR_ICONS to 1 to enable support for colour icons,
+ * as in Atari TOS 4
+ */
+#ifndef CONF_WITH_COLOUR_ICONS
+# define CONF_WITH_COLOUR_ICONS 1
+#endif
+
+/*
  * Set CONF_WITH_EXTENDED_MOUSE to 1 to enable extended mouse support.
  * This includes new Eiffel scancodes for mouse buttons 3, 4, 5, and
  * the wheel.
@@ -1282,6 +1289,23 @@
  */
 #ifndef CONF_WITH_VDI_VERTLINE
 # define CONF_WITH_VDI_VERTLINE 1
+#endif
+
+/*
+ * Set CONF_WITH_GRAF_MOUSE_EXTENSION to 1 to include AES support for
+ * graf_mouse() modes M_SAVE, M_RESTORE, M_PREVIOUS.
+ */
+#ifndef CONF_WITH_GRAF_MOUSE_EXTENSION
+# define CONF_WITH_GRAF_MOUSE_EXTENSION 1
+#endif
+
+/*
+ * Set CONF_WITH_WINDOW_COLOURS to 1 to include AES support for managing
+ * window element colours.  Management is via modes WF_COLOR/WF_DCOLOR
+ * in wind_get()/wind_set().
+ */
+#ifndef CONF_WITH_WINDOW_COLOURS
+# define CONF_WITH_WINDOW_COLOURS 1
 #endif
 
 /*
@@ -1357,6 +1381,25 @@
  */
 #ifndef CONF_SERIAL_IKBD
 # define CONF_SERIAL_IKBD 0
+#endif
+
+/*
+ * Define the AES version here. This must be done at the end of the
+ * "Software Section", since the value depends on features that are set
+ * within that section. Valid values include:
+ *      0x0120      AES 1.20, used by TOS v1.02
+ *      0x0140      AES 1.40, used by TOS v1.04 & v1.62
+ *      0x0320      AES 3.20, used by TOS v2.06 & v3.06
+ *      0x0340      AES 3.40, used by TOS v4.04
+ * Do not change this arbitrarily, as each value implies the presence or
+ * absence of certain AES functions ...
+ */
+#ifndef AES_VERSION
+# if CONF_WITH_WINDOW_COLOURS && CONF_WITH_GRAF_MOUSE_EXTENSION
+#  define AES_VERSION 0x0320
+# else
+#  define AES_VERSION 0x0140
+# endif
 #endif
 
 

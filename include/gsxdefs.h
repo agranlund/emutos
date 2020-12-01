@@ -76,17 +76,6 @@ typedef struct fdbstr
 } FDB;
 
 
-typedef struct mform
-{
-        WORD    mf_xhot;
-        WORD    mf_yhot;
-        WORD    mf_nplanes;
-        WORD    mf_bg;          /* mask colour index */
-        WORD    mf_fg;          /* data colour index */
-        UWORD   mf_mask[16];
-        UWORD   mf_data[16];
-} MFORM;
-
 extern WORD     gl_width;
 extern WORD     gl_height;
 
@@ -99,8 +88,7 @@ extern WORD     gl_hschar;
 extern WORD     gl_wbox;
 extern WORD     gl_hbox;
 
-extern WORD     gl_wclip;
-extern WORD     gl_hclip;
+extern GRECT    gl_clip;        /* global clipping rectangle */
 
 extern WORD     gl_nplanes;
 extern WORD     gl_handle;

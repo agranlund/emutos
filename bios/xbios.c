@@ -982,14 +982,14 @@ static void xbios_5e(WORD index,WORD count,ULONG *rgb)
  * DSP
  */
 #if DBG_XBIOS & CONF_WITH_DSP
-static void xbios_60(char *send, LONG sendlen, char *rcv, LONG rcvlen)
+static void xbios_60(const UBYTE *send, LONG sendlen, char *rcv, LONG rcvlen)
 {
     kprintf("XBIOS: Dsp_DoBlock\n");
     dsp_doblock(send, sendlen, rcv, rcvlen);
 }
-static void xbios_61(char *send, LONG sendlen, char *rcv, LONG rcvlen)
+static void xbios_61(const UBYTE *send, LONG sendlen, char *rcv, LONG rcvlen)
 {
-    kprintf("XBIOS: Dsp_BlkHandshake\n");
+    kprintf("XBIOS: Dsp_BlkHandShake\n");
     dsp_blkhandshake(send, sendlen, rcv, rcvlen);
 }
 static void xbios_62(LONG *send, LONG sendlen, LONG *rcv, LONG rcvlen)
@@ -1031,6 +1031,71 @@ static void xbios_69(void)
 {
     kprintf("XBIOS: Dsp_Unlock\n");
     dsp_unlock();
+}
+static void xbios_6a(LONG *xavailable, LONG *yavailable)
+{
+    kprintf("XBIOS: Dsp_Available\n");
+    dsp_available(xavailable, yavailable);
+}
+static WORD xbios_6b(LONG xreserve, LONG yreserve)
+{
+    kprintf("XBIOS: Dsp_Reserve\n");
+    return dsp_reserve(xreserve, yreserve);
+}
+static WORD xbios_6c(char *filename, WORD ability, UBYTE *buffer)
+{
+    kprintf("XBIOS: Dsp_LoadProg\n");
+    return dsp_loadprog(filename, ability, buffer);
+}
+static void xbios_6d(const UBYTE *codeptr, LONG codesize, WORD ability)
+{
+    kprintf("XBIOS: Dsp_ExecProg\n");
+    dsp_execprog(codeptr, codesize, ability);
+}
+static void xbios_6e(const UBYTE *codeptr, LONG codesize, WORD ability)
+{
+    kprintf("XBIOS: Dsp_ExecBoot\n");
+    dsp_execboot(codeptr, codesize, ability);
+}
+static LONG xbios_6f(char *filename, char *outbuf)
+{
+    kprintf("XBIOS: Dsp_LodToBinary\n");
+    return dsp_lodtobinary(filename, outbuf);
+}
+static void xbios_70(WORD vector)
+{
+    kprintf("XBIOS: Dsp_TriggerHC\n");
+    dsp_triggerhc(vector);
+}
+static WORD xbios_71(void)
+{
+    kprintf("XBIOS: Dsp_RequestUniqueAbility\n");
+    return dsp_requestuniqueability();
+}
+static WORD xbios_72(void)
+{
+    kprintf("XBIOS: Dsp_GetProgAbility\n");
+    return dsp_getprogability();
+}
+static void xbios_73(void)
+{
+    kprintf("XBIOS: Dsp_FlushSubroutines\n");
+    dsp_flushsubroutines();
+}
+static WORD xbios_74(const UBYTE *codeptr, LONG size, WORD ability)
+{
+    kprintf("XBIOS: Dsp_LoadSubroutine\n");
+    return dsp_loadsubroutine(codeptr, size, ability);
+}
+static WORD xbios_75(WORD ability)
+{
+    kprintf("XBIOS: Dsp_InqSubrAbility\n");
+    return dsp_inqsubrability(ability);
+}
+static WORD xbios_76(WORD handle)
+{
+    kprintf("XBIOS: Dsp_RunSubroutine\n");
+    return dsp_runsubroutine(handle);
 }
 static WORD xbios_77(WORD flag)
 {
@@ -1358,19 +1423,19 @@ const PFLONG xbios_vecs[] = {
     VEC(xbios_67, dsp_getwordsize),
     VEC(xbios_68, dsp_lock),
     VEC(xbios_69, dsp_unlock),
-    xbios_unimpl,   /* 6a */
-    xbios_unimpl,   /* 6b */
-    xbios_unimpl,   /* 6c */
-    xbios_unimpl,   /* 6d */
-    xbios_unimpl,   /* 6e */
-    xbios_unimpl,   /* 6f */
-    xbios_unimpl,   /* 70 */
-    xbios_unimpl,   /* 71 */
-    xbios_unimpl,   /* 72 */
-    xbios_unimpl,   /* 73 */
-    xbios_unimpl,   /* 74 */
-    xbios_unimpl,   /* 75 */
-    xbios_unimpl,   /* 76 */
+    VEC(xbios_6a, dsp_available),
+    VEC(xbios_6b, dsp_reserve),
+    VEC(xbios_6c, dsp_loadprog),
+    VEC(xbios_6d, dsp_execprog),
+    VEC(xbios_6e, dsp_execboot),
+    VEC(xbios_6f, dsp_lodtobinary),
+    VEC(xbios_70, dsp_triggerhc),
+    VEC(xbios_71, dsp_requestuniqueability),
+    VEC(xbios_72, dsp_getprogability),
+    VEC(xbios_73, dsp_flushsubroutines),
+    VEC(xbios_74, dsp_loadsubroutine),
+    VEC(xbios_75, dsp_inqsubrability),
+    VEC(xbios_76, dsp_runsubroutine),
     VEC(xbios_77, dsp_hf0),
     VEC(xbios_78, dsp_hf1),
     VEC(xbios_79, dsp_hf2),

@@ -38,14 +38,6 @@
 #define IP_6PATT    6
 #define IP_SOLID    7
 
-#define SYS_FG      0x1100      /* system foreground and background rules */
-                                /*   but transparent                      */
-
-#define WTS_FG      0x11a1      /* window title selected using pattern 2 */
-                                /*  & replace mode text                  */
-
-#define WTN_FG      0x1100      /* window title normal */
-
 #define MD_REPLACE  1           /* gsx modes */
 #define MD_TRANS    2
 #define MD_XOR      3
@@ -85,6 +77,7 @@
 #define G_FBOXTEXT  30
 #define G_ICON      31
 #define G_TITLE     32
+#define G_CICON     33
 
 #define NONE        0x0000      /* Object flags */
 #define SELECTABLE  0x0001
@@ -105,7 +98,6 @@
 #define OUTLINED    0x0010
 #define SHADOWED    0x0020
 #define WHITEBAK    0x0040
-#define DRAW3D      0x0080
 
 #define WHITE       0           /* Object colors */
 #define BLACK       1
@@ -188,6 +180,22 @@ typedef struct
         WORD    ib_wtext;
         WORD    ib_htext;
 } ICONBLK;
+
+typedef struct _CICON
+{
+        WORD    num_planes;     /* number of planes for this version */
+        WORD    *col_data;      /* ptrs to colour icon mask & data */
+        WORD    *col_mask;
+        WORD    *sel_data;      /* ptrs to optional icon/mask for SELECTED state */
+        WORD    *sel_mask;
+        struct  _CICON *next_res;
+} CICON;
+
+typedef struct
+{
+        ICONBLK monoblk;        /* mono version of icon */
+        CICON   *mainlist;
+} CICONBLK;
 
 typedef struct
 {

@@ -215,7 +215,7 @@ A0 is 0 and hence a bus error occurs when the program wants to modify
 that variable.  Second, it parses the bytes of the 0xA00A (hide cursor)
 line-A routine to get the address of a variable reflecting the internal
 state of the mouse cursor.  This is done with the same code used in
-"Ramses" (see above).  This also fails on EmuTOS, resulting in another
+"Ramses" (see below).  This also fails on EmuTOS, resulting in another
 bus error.  There may be more accesses to undocumented variables.
 
 
@@ -252,17 +252,21 @@ undocumented things with the bytes of the actual routine:
     https://sourceforge.net/p/emutos/mailman/message/30605378/
 
 
-Program: Reservoir Gods game (Bugger, Bunion, SkyFall, Sworm)
--------------------------------------------------------------
-Error: panic
+Program: Reservoir Gods programs on the Falcon
+----------------------------------------------
+This applies to (at least): Bugger, Bunion, Fractal Playground, SkyFall, Sworm
+
+Error: panic 
 
 Bug analysis:
-Games use an undocumented TOS4 vector for keyboard input instead of
-accessing kbdvec correctly.  This causes EmuTOS to panic.
+Programs use an undocumented TOS4 vector for keyboard input instead of
+accessing kbdvec and/or 'shifty' correctly.  This causes EmuTOS to panic.
 
 Workaround:
-This can be worked around with the following hack.prg:
+In the programs listed above, this can be worked around with the following
+hack.prg:
     https://sourceforge.net/p/emutos/mailman/message/26841274/
+This may also work with other Reservoir Gods programs.
 
 
 Program: Spectrum 512

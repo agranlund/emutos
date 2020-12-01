@@ -110,12 +110,29 @@ static const LONG gl_waspec[NUM_ELEM] =
     0x00011101L     /* W_HELEV      */
 };
 
+#if CONF_WITH_WINDOW_COLOURS
+/*
+ * default TEDINFO colour words for window gadgets
+ */
+static WORD gl_wtcolor[NUM_ELEM];   /* when window is topped */
+static WORD gl_wbcolor[NUM_ELEM];   /* when window is untopped */
+#endif
+
 static TEDINFO gl_aname;
 static TEDINFO gl_ainfo;
 
+/*
+ * te_color defines for topped/untopped window names
+ *
+ * for both, border colour = 1, text colour = 1
+ */ 
+#define TOPPED_COLOR    0x11a1      /* opaque, fill pattern 2, fill colour 1 */
+#define UNTOPPED_COLOR  0x1100      /* transparent, hollow, fill colour 0 */
+
+/* initialisation values for gl_aname, gl_ainfo */
 static const TEDINFO gl_asamp =
 {
-    0x0L, 0x0L, 0x0L, IBM, MD_REPLACE, TE_LEFT, SYS_FG, 0x0, 1, 80, 80
+    NULL, NULL, NULL, IBM, 0, TE_LEFT, UNTOPPED_COLOR, 0, 1, 80, 80
 };
 
 static WORD wind_msg[8];
@@ -160,6 +177,8 @@ static void w_obadd(OBJECT olist[], WORD parent, WORD child)
 static void w_setup(AESPD *ppd, WORD w_handle, WORD kind)
 {
     WINDOW *pwin;
+    WORD i;
+    MAYBE_UNUSED(i);
 
     pwin = &D.w_win[w_handle];
     pwin->w_owner = ppd;
@@ -169,6 +188,15 @@ static void w_setup(AESPD *ppd, WORD w_handle, WORD kind)
     pwin->w_pinfo = "";
     pwin->w_hslide = pwin->w_vslide = 0;    /* slider at left/top   */
     pwin->w_hslsiz = pwin->w_vslsiz = -1;   /* use default size     */
+
+#if CONF_WITH_WINDOW_COLOURS
+    /* set default window object colours */
+    for (i = 0; i < NUM_ELEM; i++)
+    {
+        pwin->w_tcolor[i] = gl_wtcolor[i];
+        pwin->w_bcolor[i] = gl_wbcolor[i];
+    }
+#endif
 }
 
 
@@ -224,7 +252,7 @@ static void w_adjust( WORD parent, WORD obj, WORD x, WORD y,  WORD w, WORD h)
 }
 
 
-static void w_hvassign(WORD isvert, WORD parent, WORD obj, WORD vx, WORD vy,
+static void w_hvassign(BOOL isvert, WORD parent, WORD obj, WORD vx, WORD vy,
                        WORD hx, WORD hy, WORD w, WORD h)
 {
     if (isvert)
@@ -311,7 +339,24 @@ static void w_cpwalk(WORD wh, WORD obj, WORD depth, BOOL usetrue)
 }
 
 
-static void w_barcalc(WORD isvert, WORD space, WORD sl_value, WORD sl_size,
+static void w_setcolor(WINDOW *pw, WORD gadget, BOOL istop)
+{
+#if CONF_WITH_WINDOW_COLOURS
+    WORD color;
+    OBJECT *obj;
+
+    color = istop ? pw->w_tcolor[gadget] : pw->w_bcolor[gadget];
+
+    obj = &W_ACTIVE[gadget];
+    if ((obj->ob_type&0xff) == G_BOXTEXT)
+        ((TEDINFO *)(obj->ob_spec))->te_color = color;
+    else
+        obj->ob_spec = (obj->ob_spec & 0xffff0000L) | (UWORD)color;
+#endif
+}
+
+
+static void w_barcalc(BOOL isvert, WORD space, WORD sl_value, WORD sl_size,
                       WORD min_sld, GRECT *ptv, GRECT *pth)
 {
     if (sl_size == -1)
@@ -328,13 +373,14 @@ static void w_barcalc(WORD isvert, WORD space, WORD sl_value, WORD sl_size,
 }
 
 
-static void w_bldbar(UWORD kind, WORD istop, WORD w_bar, WORD sl_value,
-                     WORD sl_size, WORD x, WORD y, WORD w, WORD h)
+static void w_bldbar(UWORD kind, BOOL istop, WORD w_bar, WINDOW *pw,
+                     WORD x, WORD y, WORD w, WORD h)
 {
-    WORD    isvert, obj;
+    BOOL    isvert;
+    WORD    obj;
     UWORD   upcmp, dncmp, slcmp;
-    WORD    w_up;
-    WORD    w_dn, w_slide, space, min_sld;
+    WORD    w_up, w_dn, w_slide, w_elev;
+    WORD    sl_value, sl_size, min_sld, space;
 
     isvert = (w_bar == W_VBAR);
     if (isvert)
@@ -345,6 +391,9 @@ static void w_bldbar(UWORD kind, WORD istop, WORD w_bar, WORD sl_value,
         w_up = W_UPARROW;
         w_dn = W_DNARROW;
         w_slide = W_VSLIDE;
+        w_elev = W_VELEV;
+        sl_value = pw->w_vslide;
+        sl_size = pw->w_vslsiz;
         min_sld = gl_hbox;
     }
     else
@@ -355,8 +404,18 @@ static void w_bldbar(UWORD kind, WORD istop, WORD w_bar, WORD sl_value,
         w_up = W_LFARROW;
         w_dn = W_RTARROW;
         w_slide = W_HSLIDE;
+        w_elev = W_HELEV;
+        sl_value = pw->w_hslide;
+        sl_size = pw->w_hslsiz;
         min_sld = gl_wbox;
     }
+
+    /* set window widget colours according to topped/untopped status */
+    w_setcolor(pw, w_bar, istop);
+    w_setcolor(pw, w_up, istop);
+    w_setcolor(pw, w_dn, istop);
+    w_setcolor(pw, w_slide, istop);
+    w_setcolor(pw, w_elev, istop);
 
     w_hvassign(isvert, W_DATA, w_bar, x, y, x, y, w, h);
     x = y = 0;
@@ -423,7 +482,7 @@ void w_setactive(void)
 
 void w_bldactive(WORD w_handle)
 {
-    WORD    istop;
+    BOOL    istop;
     WORD    kind;
     WORD    havevbar;
     WORD    havehbar;
@@ -450,31 +509,42 @@ void w_bldactive(WORD w_handle)
     W_ACTIVE[W_BOX].ob_y = t.g_y;
     W_ACTIVE[W_BOX].ob_width = t.g_w;
     W_ACTIVE[W_BOX].ob_height = t.g_h;
+    w_setcolor(pw, W_BOX, istop);
 
     /* do title area */
     t.g_x = t.g_y = 0;
     if (kind & (NAME|CLOSER|FULLER))
     {
+        w_setcolor(pw, W_TITLE, istop);
         w_adjust(W_BOX, W_TITLE, t.g_x, t.g_y, t.g_w, gl_hbox);
         tempw = t.g_w;
-        if ((kind & CLOSER) && istop)
+        if (kind & CLOSER)
         {
-            w_adjust(W_TITLE, W_CLOSER, t.g_x, t.g_y, gl_wbox, gl_hbox);
-            t.g_x += gl_wbox;
-            tempw -= gl_wbox;
+            w_setcolor(pw, W_CLOSER, istop);
+            if (istop)
+            {
+                w_adjust(W_TITLE, W_CLOSER, t.g_x, t.g_y, gl_wbox, gl_hbox);
+                t.g_x += gl_wbox;
+                tempw -= gl_wbox;
+            }
         }
-        if ((kind & FULLER) && istop)
+        if (kind & FULLER)
         {
-            tempw -= gl_wbox;
-            w_adjust(W_TITLE, W_FULLER, t.g_x+tempw, t.g_y, gl_wbox, gl_hbox);
+            w_setcolor(pw, W_FULLER, istop);
+            if (istop)
+            {
+                tempw -= gl_wbox;
+                w_adjust(W_TITLE, W_FULLER, t.g_x+tempw, t.g_y, gl_wbox, gl_hbox);
+            }
         }
         if (kind & NAME)
         {
+            w_setcolor(pw, W_NAME, istop);
             w_adjust(W_TITLE, W_NAME, t.g_x, t.g_y, tempw, gl_hbox);
             W_ACTIVE[W_NAME].ob_state = istop ? NORMAL : DISABLED;
-
-            /* comment out following line to enable pattern in window title */
-            gl_aname.te_color = istop ? WTS_FG : WTN_FG;
+#if !CONF_WITH_WINDOW_COLOURS
+            gl_aname.te_color = istop ? TOPPED_COLOR : UNTOPPED_COLOR;
+#endif
         }
         t.g_x = 0;
         t.g_y += (gl_hbox - 1);
@@ -484,6 +554,7 @@ void w_bldactive(WORD w_handle)
     /* do info area */
     if (kind & INFO)
     {
+        w_setcolor(pw, W_INFO, istop);
         w_adjust(W_BOX, W_INFO, t.g_x, t.g_y, t.g_w, gl_hbox);
         t.g_y += (gl_hbox - 1);
         t.g_h -= (gl_hbox - 1);
@@ -509,24 +580,25 @@ void w_bldactive(WORD w_handle)
     if (havevbar)
     {
         t.g_x += t.g_w;
-        w_bldbar(kind, istop, W_VBAR, pw->w_vslide, pw->w_vslsiz,
-                    t.g_x, 0, t.g_w+2, t.g_h+2);
+        w_bldbar(kind, istop, W_VBAR, pw, t.g_x, 0, t.g_w+2, t.g_h+2);
     }
 
     /* do horizontal bar area */
     if (havehbar)
     {
         t.g_y += t.g_h;
-        w_bldbar(kind, istop, W_HBAR, pw->w_hslide, pw->w_hslsiz,
-                    0, t.g_y, t.g_w+2, t.g_h+2);
+        w_bldbar(kind, istop, W_HBAR, pw, 0, t.g_y, t.g_w+2, t.g_h+2);
     }
 
     /* do sizer area */
     if (havevbar && havehbar)
     {
+        w_setcolor(pw, W_SIZER, istop);
         w_adjust(W_DATA, W_SIZER, t.g_x, t.g_y, gl_wbox, gl_hbox);
-        W_ACTIVE[W_SIZER].ob_spec =
-                    (istop && (kind & SIZER)) ? 0x06011100L: 0x00011100L;
+        /* we only display the sizer indicator if we're topped */
+        W_ACTIVE[W_SIZER].ob_spec &= 0x00ffffffL;   /* remove gadget char */
+        if (istop && (kind & SIZER))
+            W_ACTIVE[W_SIZER].ob_spec |= 0x06000000L;
     }
 }
 
@@ -595,7 +667,7 @@ static void w_redraw(WORD w_handle, GRECT *pt)
  *  blit.  If the source is at -1, then the source and destination left
  *  fringes need to be realigned.
  */
-static WORD w_mvfix(GRECT *ps, GRECT *pd)
+static BOOL w_mvfix(GRECT *ps, GRECT *pd)
 {
     WORD tmpsx;
 
@@ -618,12 +690,12 @@ static WORD w_mvfix(GRECT *ps, GRECT *pd)
  *  the whole desktop is just updated.  All uncovered portions of the
  *  desktop are redrawn by later calling w_update.
  */
-static WORD w_move(WORD w_handle, WORD *pstop, GRECT *prc)
+static BOOL w_move(WORD w_handle, WORD *pstop, GRECT *prc)
 {
     GRECT   s;      /* source */
     GRECT   d;      /* destination */
     GRECT   *pc;
-    WORD    sminus1, dminus1;
+    BOOL    sminus1, dminus1;
 
     w_getsize(WS_PREV, w_handle, &s);
     s.g_w += DROP_SHADOW_SIZE;
@@ -650,7 +722,7 @@ static WORD w_move(WORD w_handle, WORD *pstop, GRECT *prc)
     if (*pstop == w_handle)
     {
         gsx_sclip(&gl_rfull);
-        bb_screen(S_ONLY, s.g_x, s.g_y, d.g_x, d.g_y, s.g_w, s.g_h);
+        bb_screen(s.g_x, s.g_y, d.g_x, d.g_y, s.g_w, s.g_h);
         /* cleanup left edge */
         if (sminus1 != dminus1)
         {
@@ -687,7 +759,7 @@ static WORD w_move(WORD w_handle, WORD *pstop, GRECT *prc)
 void w_update(WORD bottom, GRECT *pt, WORD top, BOOL moved)
 {
     WORD   i, ni;
-    WORD   done;
+    BOOL   done;
 
     /* limit to screen */
     rc_intersect(&gl_rfull, pt);
@@ -918,9 +990,9 @@ static void w_owns(WINDOW *pwin, ORECT *po, GRECT *pt, GRECT *poutwds)
 
 
 /*
- *  Start the window manager up by initializing internal variables
+ *  (Re)initialize window manager internal variables, excluding window colours
  */
-void wm_start(void)
+void wm_init(void)
 {
     WORD    i;
     ORECT   *po;
@@ -982,6 +1054,35 @@ void wm_start(void)
 
 
 /*
+ *  Start the window manager up by initializing all internal variables
+ */
+void wm_start(void)
+{
+#if CONF_WITH_WINDOW_COLOURS
+    WORD i;
+
+    /*
+    * Initialise default window gadget colours, as follows:
+    *  W_NAME (topped)     0x11a1 (border black, text black, fill opaque, pattern 2)
+    *  W_VSLIDE (topped)   0x1111 (border black, text black, fill transparent, pattern 1)
+    *  W_HSLIDE (topped)   0x1111 (border black, text black, fill transparent, pattern 1)
+    *  all others:         0x1101 (border black, text black, fill transparent, pattern 0)
+    */
+    for (i = 0; i < NUM_ELEM; i++)
+    {
+        gl_wtcolor[i] = gl_wbcolor[i] = 0x1101;
+    }
+
+    gl_wtcolor[W_NAME] |= 0xa0;
+    gl_wtcolor[W_VSLIDE] |= 0x10;
+    gl_wtcolor[W_HSLIDE] |= 0x10;
+#endif
+
+    wm_init();          /* initialise the remaining variables */
+}
+
+
+/*
  *  Allocates a window for the calling application of the appropriate
  *  size and returns a window handle
  */
@@ -1007,7 +1108,7 @@ WORD wm_create(WORD kind, GRECT *pt)
 /*
  *  Opens or closes a window
  */
-static void wm_opcl(WORD wh, GRECT *pt, WORD isadd)
+static void wm_opcl(WORD wh, GRECT *pt, BOOL isadd)
 {
     GRECT   t;
 
@@ -1067,13 +1168,24 @@ void wm_delete(WORD w_handle)
 
 /*
  *  Gives information about the current window to the application that owns it
+ *
+ *  Note: the WF_COLOR and WF_DCOLOR modes were introduced in AES 3.30, and are
+ *  not well-documented, so I'll add the documentation here:
+ *
+ *  wind_get(handle, WF_COLOR/WF_DCOLOR, &parm1, &parm2, &parm3, &parm4)
+ *      input:  handle is the window handle (ignored for WF_DCOLOR)
+ *              parm1 contains the number of the gadget (W_BOX etc)
+ *      output: parm2 contains the obspec colour word when the window is topped
+ *              parm3 contains the obspec colour word when the window is untopped
  */
 void wm_get(WORD w_handle, WORD w_field, WORD *poutwds)
 {
-    WORD    which;
+    WORD    which, gadget;
     GRECT   t;
     ORECT   *po;
     WINDOW  *pwin;
+    MAYBE_UNUSED(gadget);
+
     pwin = &D.w_win[w_handle];
 
     which = -1;
@@ -1116,6 +1228,18 @@ void wm_get(WORD w_handle, WORD w_field, WORD *poutwds)
     case WF_SCREEN:
         gsx_mret((LONG *)poutwds, (LONG *)(poutwds+2));
         break;
+#if CONF_WITH_WINDOW_COLOURS
+    case WF_COLOR:
+        gadget = poutwds[0];
+        poutwds[1] = pwin->w_tcolor[gadget];
+        poutwds[2] = pwin->w_bcolor[gadget];
+        break;
+    case WF_DCOLOR:
+        gadget = poutwds[0];
+        poutwds[1] = gl_wtcolor[gadget];
+        poutwds[2] = gl_wbcolor[gadget];
+        break;
+#endif
     }
 
     if (which != -1)
@@ -1220,6 +1344,24 @@ void wm_set(WORD w_handle, WORD w_field, WORD *pinwds)
         pwin->w_vslide = pinwds[0];
         gadget = W_VSLIDE;
         break;
+#if CONF_WITH_WINDOW_COLOURS
+    case WF_COLOR:
+        gadget = pinwds[0];
+        if (pinwds[1] != -1)
+            pwin->w_tcolor[gadget] = pinwds[1];
+        if (pinwds[2] != -1)
+            pwin->w_bcolor[gadget] = pinwds[2];
+        do_cpwalk = TRUE;
+        break;
+    case WF_DCOLOR:
+        gadget = pinwds[0];
+        if (pinwds[1] != -1)
+            gl_wtcolor[gadget] = pinwds[1];
+        if (pinwds[2] != -1)
+            gl_wbcolor[gadget] = pinwds[2];
+        gadget = -1;            /* do not call w_cpwalk() in this case */
+        break;
+#endif
     }
 
     if (w_handle == gl_wtop)    /* only update slides in topped window */

@@ -118,7 +118,7 @@ static void  g_v_opnwk(WORD *pwork_in, WORD *phandle, WS *pwork_out );
  */
 static ULONG gsx_mcalc(void)
 {
-    gsx_fix(&gl_tmp, NULL, 0, 0);           /* store screen info    */
+    gsx_fix_screen(&gl_tmp);            /* store screen info    */
     gl_mlen = (LONG)MENU_BUFFER_SIZE * gl_wchar * gl_hchar * gl_nplanes / 8;
 
     return(gl_mlen);
@@ -338,11 +338,15 @@ void gsx_graphic(WORD tographic)
 
 
 
-static void bb_set(WORD sx, WORD sy, WORD sw, WORD sh, WORD *pts1, WORD *pts2,
-                   FDB *pfd, FDB *psrc, FDB *pdst)
+static void bb_set(BOOL save, GRECT *r)
 {
-    WORD            oldsx;
+    FDB *psrc, *pdst;
+    WORD pxyarray[8], *pts1, *pts2;
+    WORD sx, sy, sw, sh, oldsx;
     LONG            size;
+
+    /* extract x/y/w/h from GRECT */
+    r_get(r, &sx, &sy, &sw, &sh);
 
     /* get on word boundary */
     oldsx = sx;
@@ -355,14 +359,31 @@ static void bb_set(WORD sx, WORD sy, WORD sw, WORD sh, WORD *pts1, WORD *pts2,
         sh = (ULONG)gl_mlen * sh / size;
 
         /* issue warning message for backup only, not for subsequent restore */
-        if (pdst == &gl_tmp)
+        if (save)
             KINFO(("Menu/alert buffer too small: need at least %ld bytes\n",size));
     }
 
+    gsx_fix_screen(&gl_src);
+    /* gl_tmp.fd_addr was set by gsx_malloc() */
     gl_tmp.fd_stand = TRUE;
     gl_tmp.fd_wdwidth = sw / 16;
     gl_tmp.fd_w = sw;
     gl_tmp.fd_h = sh;
+
+    if (save)
+    {
+        psrc = &gl_src;
+        pdst = &gl_tmp;
+        pts1 = pxyarray;
+        pts2 = pxyarray + 4;
+    }
+    else
+    {
+        psrc = &gl_tmp;         /* invert FDBs & coordinates */
+        pdst = &gl_src;
+        pts1 = pxyarray + 4;
+        pts2 = pxyarray;
+    }
 
     gsx_moff();
     pts1[0] = sx;
@@ -374,8 +395,7 @@ static void bb_set(WORD sx, WORD sy, WORD sw, WORD sh, WORD *pts1, WORD *pts2,
     pts2[2] = sw - 1;
     pts2[3] = sh - 1 ;
 
-    gsx_fix(pfd, NULL, 0, 0);
-    vro_cpyfm(S_ONLY, ptsin, psrc, pdst);
+    vro_cpyfm(S_ONLY, pxyarray, psrc, pdst);
     gsx_mon();
 }
 
@@ -383,16 +403,14 @@ static void bb_set(WORD sx, WORD sy, WORD sw, WORD sh, WORD *pts1, WORD *pts2,
 
 void bb_save(GRECT *ps)
 {
-    bb_set(ps->g_x, ps->g_y, ps->g_w, ps->g_h, &ptsin[0], &ptsin[4],
-           &gl_src, &gl_src, &gl_tmp);
+    bb_set(TRUE, ps);
 }
 
 
 
 void bb_restore(GRECT *pr)
 {
-    bb_set(pr->g_x, pr->g_y, pr->g_w, pr->g_h, &ptsin[4], &ptsin[0],
-           &gl_dst, &gl_tmp, &gl_dst);
+    bb_set(FALSE, pr);
 }
 
 
@@ -411,7 +429,12 @@ void gsx_mfset(const MFORM *pmfnew)
 {
     gsx_moff();
     if (!gl_ctmown)
+    {
+#if CONF_WITH_GRAF_MOUSE_EXTENSION
+        gl_prevmouse = gl_mouse;
+#endif
         gl_mouse = *pmfnew;
+    }
     memcpy(intin, (void *)pmfnew, sizeof(MFORM));
     gsx_ncode(SET_CUR_FORM, 0, sizeof(MFORM)/sizeof(WORD));
     gsx_mon();
@@ -511,26 +534,36 @@ void gsx_textsize(WORD *charw, WORD *charh, WORD *cellw, WORD *cellh)
 
 
 /*
+ *  Routine to set the FDB to correspond to the current screen
+ */
+void gsx_fix_screen(FDB *pfd)
+{
+    pfd->fd_addr = NULL;
+    pfd->fd_w = gl_ws.ws_xres + 1;
+    pfd->fd_h = gl_ws.ws_yres + 1;
+    pfd->fd_wdwidth = pfd->fd_w / 16;
+    pfd->fd_stand = FALSE;
+    pfd->fd_nplanes = gl_nplanes;
+}
+
+
+/*
  *  Routine to fix up the MFDB of a particular raster form
  */
 void gsx_fix(FDB *pfd, void *theaddr, WORD wb, WORD h)
 {
     if (theaddr == NULL)
     {
-        pfd->fd_w = gl_ws.ws_xres + 1;
-        pfd->fd_wdwidth = pfd->fd_w / 16;
-        pfd->fd_h = gl_ws.ws_yres + 1;
-        pfd->fd_nplanes = gl_nplanes;
+        gsx_fix_screen(pfd);
+        return;
     }
-    else
-    {
-        pfd->fd_wdwidth = wb / 2;
-        pfd->fd_w = wb * 8;
-        pfd->fd_h = h;
-        pfd->fd_nplanes = 1;
-    }
-    pfd->fd_stand = FALSE;
+
     pfd->fd_addr = theaddr;
+    pfd->fd_w = wb * 8;
+    pfd->fd_h = h;
+    pfd->fd_wdwidth = wb / 2;
+    pfd->fd_stand = FALSE;
+    pfd->fd_nplanes = 1;
 }
 
 
