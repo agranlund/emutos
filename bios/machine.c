@@ -834,6 +834,8 @@ const char * machine_name(void)
     return "Apple Lisa";
 #elif defined(MACHINE_M548X)
     return m548x_machine_name();
+#elif defined(MACHINE_RAVEN)
+    return "Raven";
 #else
     return guess_machine_name();
 #endif
